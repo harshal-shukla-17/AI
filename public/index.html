@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Coding Practice</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="landing">
+  <nav class="navbar">
+    <div class="brand"><span class="logo"></span> AI Coding Practice</div>
+    <ul>
+      <li><a class="active" href="/">Home</a></li>
+      <li><a href="/practice.html">Practice</a></li>
+      <li><a href="https://leetcode.com" target="_blank" rel="noopener">LeetCode</a></li>
+      <li class="user-area"></li>
+    </ul>
+  </nav>
+
+  <header class="hero-landing">
+    <div class="hero-grid">
+      <div>
+        <h1 class="headline">AI-Powered Coding Assistant Platform</h1>
+        <p class="subtext">Build faster with autocomplete-like hints, collaborative snippets, a knowledge hub, and instant judge feedback. Docker & Kubernetes ready.</p>
+        <div class="cta-row">
+          <a class="btn-hero" href="/practice.html">Open Dashboard</a>
+          <a class="btn-ghost" href="/login.html">Login / Signup</a>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <h4>AI Code Assistant</h4>
+            <p>Autocomplete-style hints, inline docs, debugging tips.</p>
+          </div>
+          <div class="feature-card">
+            <h4>Collaboration</h4>
+            <p>Share snippets in real time.</p>
+          </div>
+          <div class="feature-card">
+            <h4>Knowledge Hub</h4>
+            <p>Guidelines, templates, tagging.</p>
+          </div>
+          <div class="feature-card">
+            <h4>Analytics</h4>
+            <p>Usage, exports, team roles.</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="preview">
+          <div class="demo" aria-label="Interactive demo">
+            <div class="demo-header">
+              <div class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></div>
+              <div class="demo-title">editor.js — AI Coding Practice</div>
+            </div>
+            <div class="demo-body">
+              <pre class="demo-code" id="demoCode"></pre>
+              <div class="demo-footer">
+                <span class="demo-badge">Judge</span>
+                <span class="demo-status" id="demoStatus">Ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <script>
+    // Lightweight typewriter demo for landing preview
+    (function(){
+      const lines = [
+        'function solve(nums) {',
+        '  // Sum an array',
+        '  return nums.reduce((a, b) => a + b, 0);',
+        '}',
+        '',
+        'console.log(solve([1, 2, 3])); // 6'
+      ];
+      const target = document.getElementById('demoCode');
+      const status = document.getElementById('demoStatus');
+      if (!target) return;
+      let li = 0, ci = 0, started = false;
+
+      function tick(){
+        if (li >= lines.length){
+          status.textContent = 'Running...';
+          setTimeout(()=>{ status.textContent = 'Accepted (3/3) · 12 ms'; }, 700);
+          return;
+        }
+        const line = lines[li];
+        if (!started) { status.textContent = 'Typing...'; started = true; }
+        if (ci <= line.length){
+          const before = lines.slice(0, li).join('\n') + (li>0?'\n':'');
+          const current = line.slice(0, ci);
+          target.innerHTML = (before + current).replace(/</g,'&lt;') + '<span class="caret"></span>';
+          ci++;
+          setTimeout(tick, 14);
+        } else {
+          target.textContent = (lines.slice(0, li+1).join('\n'));
+          target.insertAdjacentHTML('beforeend','\n');
+          li++; ci = 0;
+          setTimeout(tick, 120);
+        }
+      }
+      setTimeout(tick, 400);
+    })();
+  </script>
+  <script src="/app.js"></script>
+</body>
+</html>

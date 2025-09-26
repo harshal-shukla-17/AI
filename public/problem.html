@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Problem | AI Coding Practice</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="page-shell">
+  <nav class="navbar">
+    <div class="brand"><span class="logo"></span> AI Coding Practice</div>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a class="active" href="/practice.html">Practice</a></li>
+      <li class="user-area"></li>
+    </ul>
+  </nav>
+
+  <main class="split">
+    <section class="left">
+      <div id="problem">
+        <header class="page-header" style="padding-left:0;padding-right:0;">
+          <h1 id="title" class="page-title">Loading...</h1>
+          <div id="meta" class="page-sub"></div>
+          <div id="tags" class="chips"></div>
+        </header>
+        <pre id="statement" class="statement"></pre>
+      </div>
+      <div class="problem-toolbar">
+        <label>Language:
+          <select id="language">
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+          </select>
+        </label>
+        <div class="controls">
+          <button id="runBtn" class="btn">Run</button>
+          <button id="formatBtn" class="btn">Format</button>
+          <button id="submitBtn" class="btn purple">Submit</button>
+        </div>
+      </div>
+      <textarea id="editor" class="editor" spellcheck="false"></textarea>
+      <div id="results" class="results"></div>
+    </section>
+    <aside class="right">
+      <div class="ai-box">
+        <h3>AI Assistant</h3>
+        <p class="small">Default: answers based on your prompt. Optionally include the problem context.</p>
+        <textarea id="aiPrompt" placeholder="Describe your issue or what you want help with..."></textarea>
+        <label style="display:block; margin:6px 0;">
+          <input type="checkbox" id="includeContext" /> Include problem title and statement
+        </label>
+        <button id="askBtn" class="btn">Ask</button>
+        <div id="aiOutput" class="ai-output"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- CodeMirror 5 (simpler CDN, avoids ESM multiple instance issues) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/hint/show-hint.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/javascript/javascript.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/closebrackets.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/hint/show-hint.js"></script>
+  <script>
+    // Prettier for JS formatting
+    // Loaded only once and used if available
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/prettier@2.8.8/standalone.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prettier@2.8.8/parser-babel.js"></script>
+  <script>
+    function formatPythonLight(src){
+      // Very lightweight, indentation-based reformatter (not full autopep8)
+      const lines = src.replace(/\t/g, '    ').split(/\r?\n/);
+      const out = [];
+      let indent = 0;
+      const dedentKeywords = /^(return|break|continue|pass|raise|elif\b|else\b|except\b|finally\b)/;
+      for (let raw of lines){
+        let s = raw.replace(/\s+$/,'');
+        const trimmed = s.trim();
+        if (trimmed.length===0){ out.push(''); continue; }
+        // dedent for closing keywords
+        if (dedentKeywords.test(trimmed)) indent = Math.max(0, indent - 1);
+        // apply indent
+        s = ' '.repeat(indent*4) + trimmed;
+        out.push(s);
+        // increase indent if line ends with ':'
+        if (/:\s*(#.*)?$/.test(trimmed)) indent += 1;
+      }
+      return out.join('\n');
+    }
+    function formatCode(){
+      const lang = document.getElementById('language').value;
+      const code = window.cm.getCode();
+      try {
+        if (lang === 'javascript'){
+          if (window.prettier && window.prettierPlugins && window.prettierPlugins.babel){
+            const formatted = window.prettier.format(code, { parser: 'babel', plugins: [window.prettierPlugins.babel], semi: true, singleQuote: true });
+            window.cm.setCode(formatted);
+            return;
+          }
+        } else if (lang === 'python') {
+          const formatted = formatPythonLight(code);
+          window.cm.setCode(formatted);
+          return;
+        }
+      } catch (e) {
+        console.warn('Format failed:', e);
+      }
+      // Fallback: trim trailing spaces
+      const fallback = code.split(/\r?\n/).map(l=>l.replace(/\s+$/,'')).join('\n');
+      window.cm.setCode(fallback);
+    }
+    // Language keyword sets for simple autocomplete
+    const KW = {
+      javascript: [
+        'function','const','let','var','return','if','else','for','while','do','switch','case','break','continue','class','extends','super','import','export','from','try','catch','finally','throw','new','this','await','async','null','undefined','true','false','Array','Object','Map','Set','Number','String','Boolean','Promise'
+      ],
+      python: [
+        'def','return','if','elif','else','for','while','break','continue','pass','class','import','from','as','try','except','finally','raise','with','yield','lambda','True','False','None','list','dict','set','tuple','range','print','len','enumerate','zip','map','filter'
+      ]
+    };
+
+    function collectIdentifiers(doc){
+      const text = doc.getValue();
+      const ids = new Set();
+      text.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (m) => { ids.add(m); return m; });
+      return Array.from(ids);
+    }
+
+    function customHint(cm){
+      const cur = cm.getCursor();
+      const token = cm.getTokenAt(cur);
+      const start = token.start;
+      const end = token.end;
+      const word = token.string;
+      const lang = document.getElementById('language').value;
+      const kw = (KW[lang] || KW.javascript);
+      const ids = collectIdentifiers(cm.getDoc());
+      const list = [...new Set([...kw, ...ids])].filter(x => x && x.toLowerCase().startsWith((word||'').toLowerCase()));
+      return { list, from: CodeMirror.Pos(cur.line, start), to: CodeMirror.Pos(cur.line, end) };
+    }
+
+    let cmInstance = null;
+    function cmMode(lang){ return lang === 'python' ? 'text/x-python' : 'javascript'; }
+    function cmIndent(lang){ return lang === 'python' ? 4 : 2; }
+    function createEditor(initial, lang){
+      const ta = document.getElementById('editor');
+      cmInstance = CodeMirror.fromTextArea(ta, {
+        value: initial || '',
+        mode: cmMode(lang),
+        lineNumbers: true,
+        tabSize: cmIndent(lang),
+        indentUnit: cmIndent(lang),
+        smartIndent: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        hintOptions: { hint: customHint, completeSingle: false },
+        extraKeys: {
+          'Tab': cm => cm.replaceSelection(' '.repeat(cmIndent(lang))),
+          'Ctrl-Space': cm => cm.showHint({ hint: customHint })
+        }
+      });
+      setTimeout(() => cmInstance.refresh(), 0);
+      cmInstance.focus();
+      window.cmView = cmInstance;
+      return cmInstance;
+    }
+    function setLanguage(lang){ if (cmInstance) { cmInstance.setOption('mode', cmMode(lang)); cmInstance.setOption('indentUnit', cmIndent(lang)); cmInstance.setOption('tabSize', cmIndent(lang)); } }
+    function getCode(){ return cmInstance ? cmInstance.getValue() : document.getElementById('editor').value; }
+    function setCode(v){ if (cmInstance) cmInstance.setValue(v || ''); else document.getElementById('editor').value = v || ''; }
+    window.cm = { createEditor, setLanguage, getCode, setCode };
+  
+    const params = new URLSearchParams(location.search);
+    const slug = params.get('slug');
+    let currentProblem = null;
+
+    async function loadProblem() {
+      const res = await fetch(`/api/problems/${slug}`);
+      if (!res.ok) {
+        document.getElementById('title').textContent = 'Problem not found';
+        return;
+      }
+      const p = await res.json();
+      currentProblem = p;
+      document.getElementById('title').textContent = p.title;
+      document.getElementById('meta').textContent = `${p.difficulty}`;
+      document.getElementById('tags').innerHTML = (p.tags||[]).map(t=>`<span class='chip'>${t}</span>`).join('');
+      document.getElementById('statement').textContent = p.statement;
+      // preload starter code
+      const langSel = document.getElementById('language');
+      const editorEl = document.getElementById('editor');
+      function refreshStarter() {
+        const lang = langSel.value;
+        window.cm.setLanguage(lang);
+        const provided = p.starterCode && p.starterCode[lang];
+        if (provided) { window.cm.setCode(provided); return; }
+        // Fallback: generate a language-appropriate scaffold based on first test
+        const first = (p.tests && p.tests[0]) ? p.tests[0].input : [];
+        const firstOut = (p.tests && p.tests[0]) ? p.tests[0].output : null;
+        function typeOfVal(v){
+          if (Array.isArray(v)) {
+            if (v.every(x => typeof x === 'number')) return 'arr_num';
+            if (v.every(x => typeof x === 'string')) return 'arr_str';
+            return 'arr';
+          }
+          if (typeof v === 'number') return 'num';
+          if (typeof v === 'string') return 'str';
+          if (typeof v === 'boolean') return 'bool';
+          return 'any';
+        }
+        const inputs = Array.isArray(first) ? first : [first];
+        const sig = inputs.map(typeOfVal);
+        const ret = typeOfVal(firstOut);
+        function jsScaffold(){
+          const params = sig.map((_, i) => `arg${i+1}`).join(', ');
+          return `function solve(${params}) {\n  // TODO: implement\n  return null;\n}\nmodule.exports = { solve };`;
+        }
+        function pyScaffold(){
+          const params = sig.map((_, i) => `arg${i+1}`).join(', ');
+          return `def solve(${params}):\n    # TODO: implement\n    return None\n`;
+        }
+        function cppType(t){
+          if (t==='num') return 'int';
+          if (t==='str') return 'string';
+          if (t==='bool') return 'bool';
+          if (t==='arr_num') return 'vector<int>';
+          if (t==='arr_str') return 'vector<string>';
+          return 'auto';
+        }
+        function cppRet(){
+          if (ret==='num') return 'int';
+          if (ret==='str') return 'string';
+          if (ret==='arr_num') return 'vector<int>';
+          if (ret==='arr_str') return 'vector<string>';
+          return 'void';
+        }
+        function cppRetDefault(){
+          if (ret==='num') return '0';
+          if (ret==='str') return 'string()';
+          if (ret==='arr_num') return 'vector<int>()';
+          if (ret==='arr_str') return 'vector<string>()';
+          return '';
+        }
+        function cppScaffold(){
+          const inc = '#include <iostream>\n#include <vector>\n#include <string>\n#include <unordered_map>\n#include <algorithm>\nusing namespace std;';
+          const params = sig.map((t,i)=> `${cppType(t)} arg${i+1}`).join(', ');
+          const rtype = cppRet();
+          const rdef = cppRetDefault();
+          const retLine = rtype==='void' ? '' : `\n    return ${rdef};`;
+          return `${inc}\n\n// Implement the solve function\n${rtype} solve(${params}) {\n    // TODO: implement${retLine}\n}\n`;
+        }
+        function javaType(t){
+          if (t==='num') return 'int';
+          if (t==='str') return 'String';
+          if (t==='bool') return 'boolean';
+          if (t==='arr_num') return 'int[]';
+          if (t==='arr_str') return 'java.util.List<String>';
+          return 'Object';
+        }
+        function javaRet(){
+          if (ret==='num') return 'int';
+          if (ret==='str') return 'String';
+          if (ret==='arr_num') return 'int[]';
+          if (ret==='arr_str') return 'java.util.List<String>';
+          return 'Object';
+        }
+        function javaRetDefault(){
+          if (ret==='num') return '0';
+          if (ret==='str') return '""';
+          if (ret==='arr_num') return 'new int[]{}';
+          if (ret==='arr_str') return 'new java.util.ArrayList<>()';
+          return 'null';
+        }
+        function javaScaffold(){
+          const params = sig.map((t,i)=> `${javaType(t)} arg${i+1}`).join(', ');
+          const rtype = javaRet();
+          const rdef = javaRetDefault();
+          return `public class Solution {\n    public static ${rtype} solve(${params}) {\n        // TODO: implement\n        return ${rdef};\n    }\n}\n`;
+        }
+        function rustType(t){
+          if (t==='num') return 'i32';
+          if (t==='str') return 'String';
+          if (t==='bool') return 'bool';
+          if (t==='arr_num') return 'Vec<i32>';
+          if (t==='arr_str') return 'Vec<String>';
+          return '()';
+        }
+        function rustParam(t,i){
+          if (t==='str') return `mut arg${i+1}: ${rustType(t)}`;
+          return `arg${i+1}: ${rustType(t)}`;
+        }
+        function rustRet(){
+          if (ret==='num') return 'i32';
+          if (ret==='str') return 'String';
+          if (ret==='arr_num') return 'Vec<i32>';
+          if (ret==='arr_str') return 'Vec<String>';
+          return '()';
+        }
+        function rustRetDefault(){
+          if (ret==='num') return '0';
+          if (ret==='str') return 'String::new()';
+          if (ret==='arr_num') return 'Vec::new()';
+          if (ret==='arr_str') return 'Vec::new()';
+          return '()';
+        }
+        function rustScaffold(){
+          const params = sig.map((t,i)=> rustParam(t,i+1)).join(', ');
+          const rtype = rustRet();
+          const rdef = rustRetDefault();
+          const retLine = rtype==='()' ? '' : `\n    ${rdef}`;
+          return `pub fn solve(${params}) -> ${rtype} {\n    // TODO: implement${retLine}\n}\n`;
+        }
+        let scaffold = '';
+        if (lang==='javascript') scaffold = jsScaffold();
+        else if (lang==='python') scaffold = pyScaffold();
+        else if (lang==='cpp') scaffold = cppScaffold();
+        else if (lang==='java') scaffold = javaScaffold();
+        else if (lang==='rust') scaffold = rustScaffold();
+        window.cm.setCode(scaffold);
+      }
+      langSel.addEventListener('change', refreshStarter);
+      window.cm.createEditor('', langSel.value);
+      refreshStarter();
+    }
+
+    async function runOrSubmit(mode) {
+      const code = window.cm.getCode();
+      const language = document.getElementById('language').value;
+      const payload = { problemId: currentProblem.id, language, code };
+      const res = await fetch('/api/judge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      const box = document.getElementById('results');
+      if (data.error) {
+        box.innerHTML = `<div class="error">${data.error}</div>`;
+        return;
+      }
+      box.innerHTML = `
+        <div class="status ${data.status}">Status: ${data.status} (${data.passed}/${data.total})</div>
+        ${data.results.map(r => `
+          <div class="case ${r.pass ? 'pass' : 'fail'}">
+            <div><strong>Test ${r.test}:</strong> ${r.pass ? 'Pass' : 'Fail'}</div>
+            <div class="mono">Input: ${JSON.stringify(r.input)}</div>
+            ${r.error ? `<div class="error">Error: ${r.error}</div>` : `<div class="mono">Expected: ${JSON.stringify(r.expected)} | Got: ${JSON.stringify(r.got)}</div>`}
+            ${r.timeMs ? `<div class="meta">Time: ${r.timeMs} ms</div>` : ''}
+          </div>
+        `).join('')}
+      `;
+    }
+
+    async function askAI() {
+      const prompt = document.getElementById('aiPrompt').value || `I have a question about coding.`;
+      const language = document.getElementById('language').value;
+      const userCode = window.cm.getCode();
+      const includeProblemContext = !!document.getElementById('includeContext').checked;
+      const payload = { prompt, language, userCode, includeProblemContext };
+      if (includeProblemContext && currentProblem) {
+        payload.problemTitle = currentProblem.title;
+        payload.problemStatement = currentProblem.statement;
+      }
+      const res = await fetch('/api/llm/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      const out = document.getElementById('aiOutput');
+      if (data.content) {
+        out.textContent = data.content;
+      } else {
+        out.innerHTML = `
+          <ul>
+            ${(data.suggestions || []).map(s => `<li>${s}</li>`).join('')}
+          </ul>
+          ${data.snippet ? `<pre class="snippet">${data.snippet.replace(/</g, '&lt;')}</pre>` : ''}
+        `;
+      }
+    }
+
+    document.getElementById('runBtn').addEventListener('click', () => runOrSubmit('run'));
+    document.getElementById('submitBtn').addEventListener('click', () => runOrSubmit('submit'));
+    document.getElementById('formatBtn').addEventListener('click', formatCode);
+    document.getElementById('askBtn').addEventListener('click', askAI);
+
+    window.addEventListener('DOMContentLoaded', loadProblem);
+  </script>
+  <script src="/app.js"></script>
+</body>
+</html>

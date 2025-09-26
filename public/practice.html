@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Practice | AI Coding Practice</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="page-shell">
+  <nav class="navbar">
+    <div class="brand"><span class="logo"></span> AI Coding Practice</div>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a class="active" href="/practice.html">Practice</a></li>
+      <li class="user-area"></li>
+    </ul>
+  </nav>
+
+  <main class="container">
+    <header class="page-header">
+      <h1 class="page-title">Practice Problems</h1>
+      <p class="page-sub">Solve problems by difficulty and track your progress.</p>
+    </header>
+    <div id="problems" class="card-list"></div>
+  </main>
+
+  <script>
+    async function loadProblems() {
+      const res = await fetch('/api/problems');
+      const data = await res.json();
+      const el = document.getElementById('problems');
+      el.innerHTML = '';
+      data.forEach(p => {
+        const a = document.createElement('a');
+        a.className = 'card-link';
+        a.href = `/problem.html?slug=${encodeURIComponent(p.slug)}`;
+        a.innerHTML = `
+          <div><strong>${p.title}</strong></div>
+          <div class="meta">${p.difficulty}</div>
+          <div class="chips">${(p.tags||[]).map(t=>`<span class='chip'>${t}</span>`).join('')}</div>
+        `;
+        el.appendChild(a);
+      });
+    }
+    loadProblems();
+  </script>
+  <script src="/app.js"></script>
+</body>
+</html>

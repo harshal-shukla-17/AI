@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your Profile | AI Coding Practice</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="page-shell">
+  <nav class="navbar">
+    <div class="brand"><span class="logo"></span> AI Coding Practice</div>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="/practice.html">Practice</a></li>
+      <li><a class="active" href="/profile.html">Profile</a></li>
+      <li class="user-area"></li>
+    </ul>
+  </nav>
+
+  <main class="container">
+    <header class="page-header">
+      <div class="row">
+        <div>
+          <h1 class="page-title">Your Progress</h1>
+          <p class="page-sub">Track solved problems, points, rank, and attempted tags.</p>
+        </div>
+        <div class="profile-actions">
+          <button class="btn" id="logoutBtnProfile">Logout</button>
+        </div>
+      </div>
+    </header>
+    <div id="summary" class="card profile-summary"></div>
+    <div class="features">
+      <div class="card">
+        <h3>Rank & Points</h3>
+        <div id="rank"></div>
+        <div id="rankProgress" class="results" style="margin-top:8px;"></div>
+      </div>
+      <div class="card">
+        <h3>Tags Attempted</h3>
+        <div id="tags"></div>
+      </div>
+      <div class="card">
+        <h3>Solved Problems</h3>
+        <div id="solved"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function loadProfile(){
+      const res = await fetch('/api/profile');
+      if (!res.ok) {
+        document.getElementById('summary').innerHTML = '<div class="error">Unable to load profile.</div>';
+        return;
+      }
+      const p = await res.json();
+      document.getElementById('summary').innerHTML = `
+        <div><strong>Solved:</strong> ${p.solvedCount} / ${p.totalProblems}</div>
+        <div><strong>Points:</strong> ${p.points}</div>
+        <div><strong>Rank:</strong> ${p.rank}</div>
+      `;
+      // Rank
+      const rankBox = document.getElementById('rank');
+      rankBox.innerHTML = `
+        <div><strong>Current:</strong> ${p.rank}</div>
+        ${p.nextRank ? `<div><strong>Next:</strong> ${p.nextRank.name} at ${p.nextRank.atPoints} pts (Remaining: ${p.nextRank.remaining})</div>` : '<div><strong>Max rank achieved.</strong></div>'}
+      `;
+      const totalForBar = p.nextRank ? (p.nextRank.atPoints) : (p.points || 1);
+      const pct = Math.min(100, Math.round((p.points / totalForBar) * 100));
+      document.getElementById('rankProgress').innerHTML = `
+        <div class="helper">Progress to next rank</div>
+        <div style="height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:#0ea5e9;"></div>
+        </div>
+      `;
+      // Tags
+      const tags = p.tags && p.tags.length ? p.tags.map(t => `<span style="display:inline-block;background:#e2e8f0;color:#334155;border-radius:999px;padding:4px 8px;margin:2px;">${t}</span>`).join('') : '<div class="helper">No tags yet.</div>';
+      document.getElementById('tags').innerHTML = tags;
+      // Solved problems
+      if (p.solvedProblems && p.solvedProblems.length){
+        const links = p.solvedProblems.map(id => `<a class="list-item" href="/problem.html?slug=${encodeURIComponent((window.slugMap && window.slugMap[id]) || id)}">Problem #${id}</a>`).join('');
+        document.getElementById('solved').innerHTML = links;
+      } else {
+        document.getElementById('solved').innerHTML = '<div class="helper">Solve some problems to see your history here.</div>';
+      }
+    }
+
+    // Build an id->slug map so solved list can be clickable
+    async function buildSlugMap(){
+      try {
+        const res = await fetch('/api/problems');
+        const list = await res.json();
+        window.slugMap = {};
+        for (const p of list) window.slugMap[p.id] = p.slug;
+      } catch {}
+    }
+
+    buildSlugMap().then(loadProfile);
+
+    // Attach logout handler for profile page
+    document.addEventListener('DOMContentLoaded', () => {
+      const lb = document.getElementById('logoutBtnProfile');
+      if (lb) lb.addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        location.href = '/login.html';
+      });
+    });
+  </script>
+  <script src="/app.js"></script>
+</body>
+</html>

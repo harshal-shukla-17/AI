@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register | AI Coding Practice</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand"><span class="logo"></span> AI Coding Practice</div>
+    <ul>
+      <li><a href="/login.html">Login</a></li>
+    </ul>
+  </nav>
+  <main class="auth-container">
+    <div class="auth-card">
+      <h2>Create your account</h2>
+      <div class="auth-sub">Join the platform and start practicing with instant feedback and AI assistance.</div>
+      <form id="regForm">
+        <div class="field">
+          <label for="name">Name (optional)</label>
+          <input type="text" id="name" placeholder="Jane Doe" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@coder.com" required />
+          <div id="emailErr" class="error-text" style="display:none;">Please enter a valid email address.</div>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="••••••••" required />
+          <div class="helper">Use at least 8 characters with a mix of letters and numbers.</div>
+          <div class="strength" id="pwdStrength">
+            <div class="strength-bars">
+              <span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="b4"></span>
+            </div>
+            <div class="strength-label" id="pwdStrengthLabel">Strength</div>
+          </div>
+          <label class="show-pass"><input type="checkbox" id="showPwd" /> Show password</label>
+          <div id="passErr" class="error-text" style="display:none;">Password must be at least 8 characters and reasonably strong.</div>
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input type="password" id="confirm" placeholder="Re-enter password" required />
+          <div id="confirmErr" class="error-text" style="display:none;">Passwords do not match.</div>
+        </div>
+        <div class="actions">
+          <a class="link" href="/login.html">Already have an account?</a>
+          <button class="btn primary" type="submit">Create account</button>
+        </div>
+      </form>
+      <div id="msg" class="results" style="margin-top:12px; display:none;"></div>
+    </div>
+  </main>
+  <script>
+    async function me() {
+      const r = await fetch('/api/auth/me');
+      if (r.ok) {
+        const u = await r.json();
+        if (u && u.email) location.href = '/';
+      }
+    }
+    me();
+
+    function scorePassword(pwd) {
+      let score = 0;
+      if (!pwd) return 0;
+      if (pwd.length >= 8) score++;
+      if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
+      if (/(\d)/.test(pwd)) score++;
+      if (/[^A-Za-z0-9]/.test(pwd) || pwd.length >= 12) score++;
+      return Math.min(score, 4);
+    }
+
+    const pwdInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm');
+    const strengthEl = document.getElementById('pwdStrength');
+    const strengthLabel = document.getElementById('pwdStrengthLabel');
+    function updateStrength() {
+      const s = scorePassword(pwdInput.value);
+      strengthEl.classList.remove('strength-1','strength-2','strength-3','strength-4');
+      if (s > 0) strengthEl.classList.add('strength-' + s);
+      const labels = ['Too weak','Weak','Good','Strong'];
+      strengthLabel.textContent = s === 0 ? 'Too weak' : labels[s-1];
+    }
+    pwdInput.addEventListener('input', updateStrength);
+    updateStrength();
+
+    document.getElementById('showPwd').addEventListener('change', (e) => {
+      const type = e.target.checked ? 'text' : 'password';
+      pwdInput.type = type;
+      confirmInput.type = type;
+    });
+
+    document.getElementById('regForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirm = document.getElementById('confirm').value;
+      // Client-side validation
+      const emailErr = document.getElementById('emailErr');
+      const passErr = document.getElementById('passErr');
+      const confirmErr = document.getElementById('confirmErr');
+      emailErr.style.display = 'none';
+      passErr.style.display = 'none';
+      confirmErr.style.display = 'none';
+      let valid = true;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { emailErr.style.display = 'block'; valid = false; }
+      const s = scorePassword(password);
+      if (!password || password.length < 8 || s < 2) { passErr.style.display = 'block'; valid = false; }
+      if (password !== confirm) { confirmErr.style.display = 'block'; valid = false; }
+      if (!valid) return;
+      const res = await fetch('/api/auth/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      const msg = document.getElementById('msg');
+      msg.style.display = 'block';
+      if (!res.ok) {
+        msg.innerHTML = `<div class=\"error\">${data.error || 'Registration failed'}</div>`;
+      } else {
+        msg.innerHTML = '<div>Account created. Redirecting...</div>';
+        setTimeout(() => location.href='/', 500);
+      }
+    });
+  </script>
+</body>
+</html>

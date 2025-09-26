@@ -1,0 +1,25 @@
+{
+  "name": "coding-practice-platform",
+  "version": "1.0.0",
+  "description": "A coding practice platform with AI assistant and online judge (JS/Python)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js",
+    "seed:problems": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.5",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.20.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-session": "^1.17.3",
+    "connect-mongo": "^5.1.0",
+    "mongodb": "^6.20.0",
+    "mongoose": "^8.18.2",
+    "morgan": "^1.10.0",
+    "@google/generative-ai": "^0.21.0"
+  }
+}

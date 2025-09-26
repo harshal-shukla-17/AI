@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login | AI Coding Practice</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="auth-page">
+  <nav class="navbar">
+    <div class="brand"><span class="logo"></span> AI Coding Practice</div>
+    <ul>
+      <li><a href="/register.html">Register</a></li>
+    </ul>
+  </nav>
+  <main class="auth-container">
+    <aside class="auth-illustration">
+      <h3>Sharpen your skills</h3>
+      <p>Practice medium to hard problems with instant judge feedback. Get tailored AI hints and code snippets while you code.</p>
+      <p>Stay focused, iterate quickly, and learn by doing.</p>
+    </aside>
+    <div class="auth-card">
+      <h2>Welcome back</h2>
+      <div class="auth-sub">Sign in to continue to your coding dashboard.</div>
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@coder.com" required />
+          <div id="emailErr" class="error-text" style="display:none;">Please enter a valid email address.</div>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="••••••••" required />
+          <div class="helper">Use a strong password for your account.</div>
+          <label class="show-pass"><input type="checkbox" id="showPwd" /> Show password</label>
+          <div id="passErr" class="error-text" style="display:none;">Password must be at least 8 characters.</div>
+          <div class="strength" id="loginPwdStrength">
+            <div class="strength-bars">
+              <span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="b4"></span>
+            </div>
+            <div class="strength-label" id="loginPwdStrengthLabel">Strength</div>
+          </div>
+        </div>
+        <div class="actions">
+          <a class="link" href="/register.html">Create an account</a>
+          <button class="btn primary" type="submit">Sign in</button>
+        </div>
+      </form>
+      <div id="msg" class="results" style="margin-top:12px; display:none;"></div>
+    </div>
+  </main>
+  <script>
+    async function me() {
+      const r = await fetch('/api/auth/me');
+      if (r.ok) {
+        const u = await r.json();
+        if (u && u.email) location.href = '/';
+      }
+    }
+    me();
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      // Client-side validation
+      const emailErr = document.getElementById('emailErr');
+      const passErr = document.getElementById('passErr');
+      emailErr.style.display = 'none';
+      passErr.style.display = 'none';
+      let valid = true;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { emailErr.style.display = 'block'; valid = false; }
+      if (!password || password.length < 8) { passErr.style.display = 'block'; valid = false; }
+      if (!valid) return;
+      const res = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      const msg = document.getElementById('msg');
+      msg.style.display = 'block';
+      if (!res.ok) {
+        msg.innerHTML = `<div class=\"error\">${data.error || 'Login failed'}</div>`;
+      } else {
+        msg.innerHTML = '<div>Login successful. Redirecting...</div>';
+        setTimeout(() => location.href='/', 500);
+      }
+    });
+
+    // Show/hide password
+    document.getElementById('showPwd').addEventListener('change', (e) => {
+      const pwd = document.getElementById('password');
+      pwd.type = e.target.checked ? 'text' : 'password';
+    });
+
+    // Simple strength indicator (read-only)
+    function scorePassword(pwd) {
+      let score = 0;
+      if (!pwd) return 0;
+      if (pwd.length >= 8) score++;
+      if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
+      if (/(\d)/.test(pwd)) score++;
+      if (/[^A-Za-z0-9]/.test(pwd) || pwd.length >= 12) score++;
+      return Math.min(score, 4);
+    }
+    const loginPwd = document.getElementById('password');
+    const loginStrength = document.getElementById('loginPwdStrength');
+    const loginStrengthLabel = document.getElementById('loginPwdStrengthLabel');
+    function updateLoginStrength() {
+      const s = scorePassword(loginPwd.value);
+      loginStrength.classList.remove('strength-1','strength-2','strength-3','strength-4');
+      if (s > 0) loginStrength.classList.add('strength-' + s);
+      const labels = ['Too weak','Weak','Good','Strong'];
+      loginStrengthLabel.textContent = s === 0 ? 'Too weak' : labels[s-1];
+    }
+    loginPwd.addEventListener('input', updateLoginStrength);
+    updateLoginStrength();
+  </script>
+</body>
+</html>
